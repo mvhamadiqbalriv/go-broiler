@@ -45,8 +45,6 @@ func AuthenticateMiddleware(next httprouter.Handle) httprouter.Handle {
         ctx = context.WithValue(ctx, "loggedUserId", loggedUserId)
         r = r.WithContext(ctx)
 
-		// Print information about the verified token
-		fmt.Printf("Token verified successfully. Claims: %+v\n", token.Claims)
 
 		// Call the next handler
 		next(w, r, ps)

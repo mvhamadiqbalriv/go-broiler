@@ -109,6 +109,7 @@ func OpenLogFile() (*os.File, error) {
 		// Return error if failed to open or create log file
 		return nil, fmt.Errorf("failed to open log file: %v", err)
 	}
+    fmt.Println("Log file is created")
 	logger.Out = file
 
 	// Return the file handle and nil error if successful
