@@ -1,0 +1,6 @@
+CREATE TABLE activity_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    action VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
