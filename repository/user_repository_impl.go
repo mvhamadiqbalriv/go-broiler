@@ -2,112 +2,102 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"mvhamadiqbalriv/belajar-golang-restful-api/helper"
 	"mvhamadiqbalriv/belajar-golang-restful-api/model/domain"
+	"mvhamadiqbalriv/belajar-golang-restful-api/pkg"
+	"net/http"
+
+	"gorm.io/gorm"
 )
 
-type UserRepositoryImpl struct {
-}
+type UserRepositoryImpl struct{}
 
 func NewUserRepository() UserRepository {
-	return &UserRepositoryImpl{}
+    return &UserRepositoryImpl{}
 }
 
-func (repository *UserRepositoryImpl) Create(ctx context.Context, tx *sql.Tx, user domain.User) domain.User {
-	SQL := "INSERT INTO users(name, email, password) VALUES($1, $2, $3) RETURNING id"
-    var id int
-
-	//encrypt password bcrypt
-	password := helper.HashAndSalt([]byte(user.Password))
-
-    err := tx.QueryRowContext(ctx, SQL, user.Name, user.Email, password).Scan(&id)
-    helper.PanicIfError(err)
-
-    user.ID = id
+func (repository *UserRepositoryImpl) Create(ctx context.Context, tx *gorm.DB, user domain.User) domain.User {
+    // Encrypt password using helper function
+    user.Password = helper.HashAndSalt([]byte(user.Password))
+    tx.Create(&user)
     return user
 }
 
-func (repository *UserRepositoryImpl) Update(ctx context.Context, tx *sql.Tx, user domain.User) domain.User {
-	SQL := "UPDATE users SET name = $1, email = $2 WHERE id = $3"
-	_, err := tx.ExecContext(ctx, SQL, user.Name, user.Email, user.ID)
-	helper.PanicIfError(err)
-
-	return user
+func (repository *UserRepositoryImpl) Update(ctx context.Context, tx *gorm.DB, user domain.User) domain.User {
+    tx.Save(&user)
+    return user
 }
 
-func (repository *UserRepositoryImpl) Delete(ctx context.Context, tx *sql.Tx, user domain.User) {
-	SQL := "DELETE FROM users WHERE id = $1"
-	_, err := tx.ExecContext(ctx, SQL, user.ID)
-	helper.PanicIfError(err)
+func (repository *UserRepositoryImpl) Delete(ctx context.Context, tx *gorm.DB, user domain.User) {
+    tx.Delete(&user)
 }
 
-func (repository *UserRepositoryImpl) FindByID(ctx context.Context, tx *sql.Tx, userId int) (domain.User, error) {
-	SQL := "SELECT id, name, email, password, profile_picture FROM users WHERE id = $1"
-	rows, err := tx.QueryContext(ctx, SQL, userId)
-	helper.PanicIfError(err)
-	defer rows.Close()
-
-	user := domain.User{}
-	if rows.Next() {
-		err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.ProfilePicture)
-		helper.PanicIfError(err)
-		return user, nil
-	} else {
-		return user, errors.New("user not found")
-	}
+func (repository *UserRepositoryImpl) FindByID(ctx context.Context, tx *gorm.DB, userId int) (domain.User, error) {
+    var user domain.User
+    result := tx.First(&user, userId)
+    if result.Error != nil {
+        if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            return user, errors.New("user not found")
+        }
+        return user, result.Error
+    }
+    return user, nil
 }
 
-func (repository *UserRepositoryImpl) FindByEmail(ctx context.Context, tx *sql.Tx, email string) (domain.User, error) {
-	SQL := "SELECT id, name, email, password FROM users WHERE email = $1"
-	rows, err := tx.QueryContext(ctx, SQL, email)
-	helper.PanicIfError(err)
-	defer rows.Close()
-
-	user := domain.User{}
-	if rows.Next() {
-		err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Password)
-		helper.PanicIfError(err)
-		return user, nil
-	} else {
-		return user, errors.New("user not found")
-	}
+func (repository *UserRepositoryImpl) FindByEmail(ctx context.Context, tx *gorm.DB, email string) (domain.User, error) {
+    var user domain.User
+    result := tx.Where("email = ?", email).First(&user)
+    if result.Error != nil {
+        if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            return user, errors.New("user not found")
+        }
+        return user, result.Error
+    }
+    return user, nil
 }
 
-func (repository *UserRepositoryImpl) FindAll(ctx context.Context, tx *sql.Tx) []domain.User {
-	SQL := "SELECT id, name, email FROM users"
-	rows, err := tx.QueryContext(ctx, SQL)
-	helper.PanicIfError(err)
-	defer rows.Close()
+func (repository *UserRepositoryImpl) FindAll(ctx context.Context, tx *gorm.DB, r *http.Request) (*pkg.PaginationImpl, error) {
+    var users []domain.User
 
-	var users []domain.User
-	for rows.Next() {
-		user := domain.User{}
-		err := rows.Scan(&user.ID, &user.Name, &user.Email)
-		helper.PanicIfError(err)
-		users = append(users, user)
-	}
+	// Extract query parameters
+    pagination := pkg.ExtractQueryParams(r)
 
-	return users
+	// Apply search filters
+    tx = applyFilters(tx, r)
+
+    // Apply pagination and retrieve users
+    tx.Scopes(pkg.Paginate(users, &pagination, tx)).Find(&users)
+
+    // Convert users to the response format
+    pagination.Rows = helper.ToUserResponses(users)
+
+    return &pagination, nil
 }
 
-func (repository *UserRepositoryImpl) ChangePassword(ctx context.Context, tx *sql.Tx, user domain.User) domain.User {
-	SQL := "UPDATE users SET password = $1 WHERE id = $2"
-
-	//encrypt password bcrypt
-	user.Password = helper.HashAndSalt([]byte(user.Password))
-
-	_, err := tx.ExecContext(ctx, SQL, user.Password, user.ID)
-	helper.PanicIfError(err)
-
-	return user
+func (repository *UserRepositoryImpl) ChangePassword(ctx context.Context, tx *gorm.DB, user domain.User) domain.User {
+    // Encrypt password using helper function
+    user.Password = helper.HashAndSalt([]byte(user.Password))
+    tx.Save(&user)
+    return user
 }
 
-func (repository *UserRepositoryImpl) ChangeProfilePicture(ctx context.Context, tx *sql.Tx, user domain.User) domain.User {
-	SQL := "UPDATE users SET profile_picture = $1 WHERE id = $2"
-	_, err := tx.ExecContext(ctx, SQL, user.ProfilePicture, user.ID)
-	helper.PanicIfError(err)
+func (repository *UserRepositoryImpl) ChangeProfilePicture(ctx context.Context, tx *gorm.DB, user domain.User) domain.User {
+    tx.Model(&user).Update("profile_picture", user.ProfilePicture)
+    return user
+}
 
-	return user
+// Function to apply search filters to the query
+func applyFilters(tx *gorm.DB, r *http.Request) *gorm.DB {
+	query := r.URL.Query()
+
+    searchName := query.Get("search_name")
+    if searchName != "" {
+        tx = tx.Where("name ILIKE ?", "%"+searchName+"%")
+    }
+    searchEmail := query.Get("search_email")
+    if searchEmail != "" {
+        tx = tx.Where("email ILIKE ?", "%"+searchEmail+"%")
+    }
+    return tx
 }

@@ -2,29 +2,31 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"mvhamadiqbalriv/belajar-golang-restful-api/exception"
 	"mvhamadiqbalriv/belajar-golang-restful-api/helper"
 	"mvhamadiqbalriv/belajar-golang-restful-api/model/domain"
 	"mvhamadiqbalriv/belajar-golang-restful-api/model/web/user_web"
+	"mvhamadiqbalriv/belajar-golang-restful-api/pkg"
 	"mvhamadiqbalriv/belajar-golang-restful-api/repository"
 	"mvhamadiqbalriv/belajar-golang-restful-api/validator"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"gorm.io/gorm"
 )
 
 const SecretKey = "secret"
 
 type UserServiceImpl struct {
 	UserRepository repository.UserRepository
-	DB			 *sql.DB
+	DB			 *gorm.DB
 	validate	 *validator.CustomValidator
 }
 
-func NewUserService(userRepository repository.UserRepository, db *sql.DB, validate *validator.CustomValidator) UserService {
+func NewUserService(userRepository repository.UserRepository, db *gorm.DB, validate *validator.CustomValidator) UserService {
 	return &UserServiceImpl{
 		UserRepository: userRepository,
 		DB:				db,
@@ -36,8 +38,10 @@ func (service *UserServiceImpl) Create(ctx context.Context, request user_web.Cre
 	err := service.validate.ValidateStruct(request)
 	helper.PanicIfError(err)
 	
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
 	//check same email
@@ -61,8 +65,10 @@ func (service *UserServiceImpl) Update(ctx context.Context, request user_web.Upd
 	err := service.validate.ValidateStruct(request)
 	helper.PanicIfError(err)
 	
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
 	user, err := service.UserRepository.FindByID(ctx, tx, request.Id)
@@ -83,8 +89,10 @@ func (service *UserServiceImpl) Update(ctx context.Context, request user_web.Upd
 }
 
 func (service *UserServiceImpl) Delete(ctx context.Context, userId int) {
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
 	user, err := service.UserRepository.FindByID(ctx, tx, userId)
@@ -96,8 +104,10 @@ func (service *UserServiceImpl) Delete(ctx context.Context, userId int) {
 }
 
 func (service *UserServiceImpl) FindByID(ctx context.Context, userId int) user_web.Response {
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
 	user, err := service.UserRepository.FindByID(ctx, tx, userId)
@@ -108,22 +118,29 @@ func (service *UserServiceImpl) FindByID(ctx context.Context, userId int) user_w
 	return helper.ToUserResponse(user)
 }
 
-func (service *UserServiceImpl) FindAll(ctx context.Context) []user_web.Response {
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+func (service *UserServiceImpl) FindAll(ctx context.Context, r *http.Request) *pkg.PaginationImpl {
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
-	users := service.UserRepository.FindAll(ctx, tx)
+	users, err := service.UserRepository.FindAll(ctx, tx, r)
+	if err != nil {
+		panic(exception.NewNotFoundError(err.Error()))
+	}
 
-	return helper.ToUsersResponses(users)
+	return users
 }
 
 func (service *UserServiceImpl) CreateProfilePicture(ctx context.Context, request user_web.CreateProfilePictureRequest) user_web.Response {
 	err := service.validate.ValidateStruct(request)
 	helper.PanicIfError(err)
 
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
 	//check userId from request id and if null change to loggedUserId
@@ -131,18 +148,17 @@ func (service *UserServiceImpl) CreateProfilePicture(ctx context.Context, reques
 	if userId == 0 {
 		userId = ctx.Value("loggedUserId").(int)
 	}
-
+	
 	user, err := service.UserRepository.FindByID(ctx, tx, userId)
 	if err != nil {
 		panic(exception.NewNotFoundError(err.Error()))
 	}
-	
+
 	//request is base 64 so we need to decode it and save it to the file
 	profilePicture, err := helper.DecodeBase64(request.ProfilePicture)
 	helper.PanicIfError(err)
 
-	//save to file with dir assets/{randomFileName}
-	profilePicturePath := fmt.Sprintf("assets/%s", helper.GenerateRandomString(10, "profile_picture"))
+	profilePicturePath := fmt.Sprintf("public/storage/%s", helper.GenerateRandomString(10, "profile_picture"))
 	profilePicturePath = fmt.Sprintf("%s.%s", profilePicturePath, "png")
 
 	err = helper.SaveFile(profilePicturePath, profilePicture)
@@ -164,8 +180,10 @@ func (service *UserServiceImpl) ChangePassword(ctx context.Context, request user
 	err := service.validate.ValidateStruct(request)
 	helper.PanicIfError(err)
 	
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
 
@@ -197,8 +215,10 @@ func (service *UserServiceImpl) Login(ctx context.Context, request user_web.Logi
 	err := service.validate.ValidateStruct(request)
 	helper.PanicIfError(err)
 	
-	tx, err := service.DB.Begin()
-	helper.PanicIfError(err)
+	tx := service.DB.Begin()
+	if tx.Error != nil {
+		helper.PanicIfError(tx.Error)
+	}
 	defer helper.CommitOrRollback(tx)
 
 	user, err := service.UserRepository.FindByEmail(ctx, tx, request.Email)

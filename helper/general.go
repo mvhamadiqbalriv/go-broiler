@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,14 @@ var logger *logrus.Logger
 
 type User struct {
     Password string
+}
+
+func StringToInt(s string) int {
+    i, err := strconv.Atoi(s)
+    if err != nil {
+        log.Fatalf("Error converting string to int: %v", err)
+    }
+    return i
 }
 
 func HashAndSalt(pwd []byte) string {
@@ -109,7 +118,6 @@ func OpenLogFile() (*os.File, error) {
 		// Return error if failed to open or create log file
 		return nil, fmt.Errorf("failed to open log file: %v", err)
 	}
-    fmt.Println("Log file is created")
 	logger.Out = file
 
 	// Return the file handle and nil error if successful
@@ -126,4 +134,14 @@ func GetEnv(key string) string {
     } 
 
     return os.Getenv(key)
+}
+
+//baseUrl with parameter path
+func BaseUrl(path string) string {
+    //when path is not null add slash before path 
+    if path != "" {
+        return GetEnv("BASE_URL") + "/" + path
+    }
+
+    return GetEnv("BASE_URL")
 }

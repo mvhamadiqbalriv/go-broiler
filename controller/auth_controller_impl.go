@@ -27,9 +27,11 @@ func (controller *AuthControllerImpl) Login(w http.ResponseWriter, r *http.Reque
 	helper.ReadFromRequestBody(r, &userLoginRequest)
 
 	authResponse := controller.UserService.Login(r.Context(), userLoginRequest)
+	
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "Login Success",
 		Data:   authResponse,
 	}
 

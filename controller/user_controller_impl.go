@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"mvhamadiqbalriv/belajar-golang-restful-api/helper"
 	"mvhamadiqbalriv/belajar-golang-restful-api/model/web"
 	"mvhamadiqbalriv/belajar-golang-restful-api/model/web/user_web"
@@ -14,11 +15,16 @@ import (
 
 type UserControllerImpl struct {
 	UserService service.UserService
+	MailService service.MailService
 }
 
-func NewUserController(userService service.UserService) UserController {
+func NewUserController(
+	userService service.UserService,
+	mailService service.MailService,
+	) UserController {
 	return &UserControllerImpl{
 		UserService: userService,
+		MailService: mailService,
 	}
 }
 
@@ -27,6 +33,11 @@ func (controller *UserControllerImpl) Create(w http.ResponseWriter, r *http.Requ
 	helper.ReadFromRequestBody(r, &userCreateRequest)
 
 	userResponse := controller.UserService.Create(r.Context(), userCreateRequest)
+	//send email
+	body := fmt.Sprintf("Hi %s, <br> Welcome to our platform", userResponse.Name)
+	err := controller.MailService.SendMail(userResponse.Email, "Welcome", body)
+	helper.PanicIfError(err)
+
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
@@ -87,7 +98,7 @@ func (controller *UserControllerImpl) FindByID(w http.ResponseWriter, r *http.Re
 }
 
 func (controller *UserControllerImpl) FindAll(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	usersResponse := controller.UserService.FindAll(r.Context())
+	usersResponse := controller.UserService.FindAll(r.Context(), r)
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",

@@ -1,37 +1,35 @@
 package app
 
-//postgres
 import (
-	"database/sql"
 	"fmt"
 	"mvhamadiqbalriv/belajar-golang-restful-api/helper"
-	"os"
 	"time"
 
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-// Connect to the database
-func NewDB() *sql.DB {
+// Connect to the database using GORM
+func NewDB() *gorm.DB {
+	host := helper.GetEnv("DB_HOST")
+	port := helper.StringToInt(helper.GetEnv("DB_PORT"))
+	user := helper.GetEnv("DB_USERNAME")
+	password := helper.GetEnv("DB_PASSWORD")
+	dbname := helper.GetEnv("DB_DATABASE")
+	sslmode := helper.GetEnv("DB_SSLMODE")
 
-	env := godotenv.Load()
-	helper.PanicIfError(env)
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=Asia/Jakarta", host, user, password, dbname, port, sslmode)
 
-	user := os.Getenv("DB_USERNAME")
-	dbname := os.Getenv("DB_DATABASE")
-	sslmode := os.Getenv("DB_SSLMODE")
-
-	db, err := sql.Open("postgres", fmt.Sprintf("user=%s dbname=%s sslmode=%s", user, dbname, sslmode))
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	helper.PanicIfError(err)
-	
-	db.SetMaxIdleConns(5)
-	db.SetMaxOpenConns(20)
-	db.SetConnMaxLifetime(60 * time.Minute)
-	db.SetConnMaxIdleTime(10 * time.Minute)
+
+	sqlDB, err := db.DB()
+	helper.PanicIfError(err)
+
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetMaxOpenConns(20)
+	sqlDB.SetConnMaxLifetime(60 * time.Minute)
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 
 	return db
-
-	//migrate -database "postgres://postgres:123456@localhost:5432/belajar_golang_restful_api?sslmode=disable" -path db/migrations up / down / force {version before dirty} / version
-	//migrate create -ext sql -dir db/migrations -tz ASIA/JAKARTA create_table_tests
 }

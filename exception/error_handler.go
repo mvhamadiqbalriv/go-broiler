@@ -79,6 +79,7 @@ func validationErrors(writer http.ResponseWriter, request *http.Request, err int
 		webResponse := web.WebResponse{
 			Code:   http.StatusBadRequest,
 			Status: "BAD REQUEST",
+			Message: "Validation error",
 			Data:   fieldErrors,
 		}
 
@@ -98,7 +99,8 @@ func unauthorizedError(writer http.ResponseWriter, request *http.Request, err in
 		webResponse := web.WebResponse{
 			Code:   http.StatusUnauthorized,
 			Status: "UNAUTHORIZED",
-			Data:   exception.Error,
+			Message: exception.Error,
+			Data:   err,
 		}
 
 		helper.WriteToResponseBody(writer, webResponse)
@@ -117,7 +119,8 @@ func notFoundError(writer http.ResponseWriter, request *http.Request, err interf
 		webResponse := web.WebResponse{
 			Code:   http.StatusNotFound,
 			Status: "NOT FOUND",
-			Data:   exception.Error,
+			Message: exception.Error,
+			Data:   err,
 		}
 
 		helper.WriteToResponseBody(writer, webResponse)
@@ -128,22 +131,23 @@ func notFoundError(writer http.ResponseWriter, request *http.Request, err interf
 }
 
 func duplicateError(writer http.ResponseWriter, request *http.Request, err interface{}) bool {
-	exception, ok := err.(DuplicateError)
-	if ok {
-		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(http.StatusConflict)
+    if exception, ok := err.(DuplicateError); ok {
+        writer.Header().Set("Content-Type", "application/json")
+        writer.WriteHeader(http.StatusConflict)
 
-		webResponse := web.WebResponse{
-			Code:   http.StatusConflict,
-			Status: "DUPLICATE",
-			Data:   exception.Error,
-		}
+        webResponse := web.WebResponse{
+            Code:   http.StatusConflict,
+            Status: "DUPLICATE",
+			Message: exception.Error,
+            Data:   err,
+        }
 
-		helper.WriteToResponseBody(writer, webResponse)
-		return true
-	} else {
-		return false
-	}
+        helper.WriteToResponseBody(writer, webResponse)
+        return true
+    }
+    // Handle other error types gracefully, e.g., log them
+    logger.Error("Unexpected error:", err)
+    return false
 }
 
 func badRequestError(writer http.ResponseWriter, request *http.Request, err interface{}) bool {
@@ -155,7 +159,8 @@ func badRequestError(writer http.ResponseWriter, request *http.Request, err inte
 		webResponse := web.WebResponse{
 			Code:   http.StatusBadRequest,
 			Status: "BAD REQUEST",
-			Data:   exception.Error,
+			Message: exception.Error,
+			Data:   err,
 		}
 
 		helper.WriteToResponseBody(writer, webResponse)
@@ -172,6 +177,7 @@ func internalServerError(writer http.ResponseWriter, request *http.Request, err 
 	webResponse := web.WebResponse{
 		Code:   http.StatusInternalServerError,
 		Status: "INTERNAL SERVER ERROR",
+		Message: err.(error).Error(),
 		Data:   err,
 	}
 

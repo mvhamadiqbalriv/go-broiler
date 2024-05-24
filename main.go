@@ -8,6 +8,8 @@ import (
 	"mvhamadiqbalriv/belajar-golang-restful-api/service"
 	"mvhamadiqbalriv/belajar-golang-restful-api/validator"
 	"net/http"
+	"os"
+	"strings"
 )
 
 func main() {
@@ -16,10 +18,17 @@ func main() {
 
 	//with custom validator from dir validator
 	validate := validator.NewCustomValidator()
+	mailService := service.NewMailService(
+		os.Getenv("MAIL_FROM_ADDRESS"),
+		os.Getenv("MAIL_HOST"),
+		helper.StringToInt(os.Getenv("MAIL_PORT")),
+		os.Getenv("MAIL_USERNAME"),
+		os.Getenv("MAIL_PASSWORD"),
+	)
 
 	userRepository := repository.NewUserRepository()
 	userService := service.NewUserService(userRepository, db, validate)
-	userController := controller.NewUserController(userService)
+	userController := controller.NewUserController(userService, mailService)
 
 	tokenBlacklistService := service.NewTokenBlacklistService()
 
@@ -34,4 +43,15 @@ func main() {
 
 	err := server.ListenAndServe()
 	helper.PanicIfError(err)
+}
+
+func intercept(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if strings.HasSuffix(r.URL.Path, "/") {
+            http.NotFound(w, r)
+            return
+        }
+
+        next.ServeHTTP(w, r)
+    })
 }
