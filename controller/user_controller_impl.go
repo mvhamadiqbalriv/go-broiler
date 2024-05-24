@@ -41,6 +41,7 @@ func (controller *UserControllerImpl) Create(w http.ResponseWriter, r *http.Requ
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "User has been created successfully",
 		Data:   userResponse,
 	}
 
@@ -62,6 +63,7 @@ func (controller *UserControllerImpl) Update(w http.ResponseWriter, r *http.Requ
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "User has been updated successfully",
 		Data:   userResponse,
 	}
 
@@ -77,6 +79,7 @@ func (controller *UserControllerImpl) Delete(w http.ResponseWriter, r *http.Requ
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "User has been deleted successfully",
 	}
 
 	helper.WriteToResponseBody(w, webResponse)
@@ -91,6 +94,7 @@ func (controller *UserControllerImpl) FindByID(w http.ResponseWriter, r *http.Re
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "User has been found",
 		Data:   userResponse,
 	}
 
@@ -102,6 +106,7 @@ func (controller *UserControllerImpl) FindAll(w http.ResponseWriter, r *http.Req
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "Users has been found",
 		Data:   usersResponse,
 	}
 
@@ -125,6 +130,7 @@ func (controller *UserControllerImpl) ChangeProfilePicture(w http.ResponseWriter
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "Profile picture has been updated",
 		Data:   userResponse,
 	}
 
@@ -145,6 +151,7 @@ func (controller *UserControllerImpl) ChangePassword(w http.ResponseWriter, r *h
 	webResponse := web.WebResponse{
 		Code:   200,
 		Status: "OK",
+		Message: "Password has been changed",
 		Data:   userResponse,
 	}
 
